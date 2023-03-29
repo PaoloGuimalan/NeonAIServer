@@ -1,3 +1,4 @@
+const contractions = require('contractions');
 const nlp = require('compromise')
 nlp.extend(require('compromise-sentences'))
 
@@ -35,27 +36,70 @@ function checkModalforYesNoQuestions(sentcs, verbArr, terms){
     // console.log(verbArr)
 
     verbArr.map((vr, i) => {
-        // console.log(dividedTags[i][vr.toLowerCase()], i, dividedTags, vr)
-        if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("QuestionWord")){
-            questionWords.push(vr)
-        }
-        
-        if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Modal")){
-            modalVerbs.push(vr)
-        }
-
-        if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Auxiliary")){
-            auxiliaryWords.push(vr)
-        }
-
-        if(customAuxVerbs.includes(vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, ""))){
-            if(terms[0].toLowerCase().trim().replace(/[^a-zA-Z ]/g, "") == vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")){
+        // console.log(vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, ""), dividedTags[i]) ----- not and do are divided in single object when inputed "not do"
+        if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")] != undefined){
+            if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("QuestionWord")){
+                questionWords.push(vr)
+            }
+            
+            if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Modal")){
+                modalVerbs.push(vr)
+            }
+    
+            if(dividedTags[i][vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Auxiliary")){
                 auxiliaryWords.push(vr)
+            }
+    
+            if(customAuxVerbs.includes(vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, ""))){
+                if(terms[0].toLowerCase().trim().replace(/[^a-zA-Z ]/g, "") == vr.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")){
+                    auxiliaryWords.push(vr)
+                }
             }
         }
     })
 
     return modalVerbs.length > 0 || questionWords.length > 0 || auxiliaryWords.length > 0? true : false;
+}
+
+function consistsExpression(sentcs){
+    // var hasExpression = nlp(sentcs).out("array").length == 0? false : true
+    var hasExpressionArray = nlp(sentcs).out("tags")
+    var contractSentc = contractions.expand(sentcs)
+
+    var hasExpressionCount = []
+    
+    // console.log(contractSentc.split(" "))
+
+    var sentcsSplit = contractSentc.split(" ").map((stspl, i) => {
+        if(stspl != "" && stspl != " "){
+            if(hasExpressionArray[0][stspl.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Expression")){
+                // console.log(stspl.toLowerCase())
+                hasExpressionCount.push(stspl.toLowerCase())
+            }
+        }
+    })
+
+    return hasExpressionCount.length == 0? false : true
+}
+
+function isCommand(sentcs){
+    var hasImperative = nlp(sentcs).out("tags");
+    var contractSentc = contractions.expand(sentcs)
+
+    var hasImperativeCount = []
+    
+    // console.log(contractSentc.split(" "))
+
+    var sentcsSplit = contractSentc.split(" ").map((stspl, i) => {
+        if(stspl != "" && stspl != " "){
+            if(hasImperative[0][stspl.toLowerCase().trim().replace(/[^a-zA-Z ]/g, "")].includes("Imperative")){
+                // console.log(stspl.toLowerCase())
+                hasImperativeCount.push(stspl.toLowerCase())
+            }
+        }
+    })
+
+    return hasImperativeCount.length == 0? false : true;
 }
 
 function processMessage(messageToken){
@@ -91,31 +135,36 @@ function processMessage(messageToken){
                 }
             }
             else{
-                if(i + 1 != splitSentence.length){
-                    if(!checkedIndex.includes(i)){
-                        if(isFullSentence(splitSentence[i + 1] + conjunctions[i + 1] + splitSentence[i + 2])){
-                            separatedSentences.push(spl + conjunctions[i] + splitSentence[i + 1])
-                        }
-                        else{
-                            if(splitSentence[i + 2] != undefined){
-                                separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1] + conjunctions[i + 1] + splitSentence[i + 2])
-                            }
-                            else{
-                                if(conjunctions[i + 1] != undefined){
-                                    separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1] + conjunctions[i + 1])
-                                }
-                                else{
-                                    separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1])
-                                }
-                            }
-                        }
-                        checkedIndex = [...checkedIndex, i, i + 1]
-                    }
+                if(consistsExpression(spl)){
+                    separatedSentences.push(spl)
                 }
                 else{
-                    if(!checkedIndex.includes(i)){
-                        if(isFullSentence(splitSentence[i - 1] + conjunctions[i - 1] + spl)){
-                            separatedSentences.push(splitSentence[i - 1] + conjunctions[i - 1] + spl)
+                    if(i + 1 != splitSentence.length){
+                        if(!checkedIndex.includes(i)){
+                            if(isFullSentence(splitSentence[i + 1] + conjunctions[i + 1] + splitSentence[i + 2])){
+                                separatedSentences.push(spl + conjunctions[i] + splitSentence[i + 1])
+                            }
+                            else{
+                                if(splitSentence[i + 2] != undefined){
+                                    separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1] + conjunctions[i + 1] + splitSentence[i + 2])
+                                }
+                                else{
+                                    if(conjunctions[i + 1] != undefined){
+                                        separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1] + conjunctions[i + 1])
+                                    }
+                                    else{
+                                        separatedSentences.push(splitSentence[i] + conjunctions[i] + splitSentence[i + 1])
+                                    }
+                                }
+                            }
+                            checkedIndex = [...checkedIndex, i, i + 1]
+                        }
+                    }
+                    else{
+                        if(!checkedIndex.includes(i)){
+                            if(isFullSentence(splitSentence[i - 1] + conjunctions[i - 1] + spl)){
+                                separatedSentences.push(splitSentence[i - 1] + conjunctions[i - 1] + spl)
+                            }
                         }
                     }
                 }
@@ -135,7 +184,8 @@ function processMessage(messageToken){
                 isExclamation: nlp(ex).sentences().isExclamation().out("array").length == 0? false : true,
                 isStatement: nlp(ex).sentences().isStatement().out("array").length == 0? false : true,
                 isAnswerableByYesNo: nlp(ex).sentences().isQuestion().out("array").length == 0? false : checkModalforYesNoQuestions(ex, nlp(ex).verbs().out("array"), ex.split(" ")),
-                isCommand: "pending",
+                isExpressionGreeting: consistsExpression(ex),
+                isCommand: isCommand(ex),
                 subjects: nlp(ex).verbs().subjects().out("array"),
                 nouns: nlp(ex).nouns().out("array"),
                 adjectives: nlp(ex).nouns().adjectives().out("array"),
@@ -153,7 +203,8 @@ function processMessage(messageToken){
                 isExclamation: nlp(ex).sentences().isExclamation().out("array").length == 0? false : true,
                 isStatement: nlp(ex).sentences().isStatement().out("array").length == 0? false : true,
                 isAnswerableByYesNo: nlp(ex).sentences().isQuestion().out("array").length == 0? false : checkModalforYesNoQuestions(ex, nlp(ex).verbs().out("array"), ex.split(" ")),
-                isCommand: "pending",
+                isExpressionGreeting: consistsExpression(ex),
+                isCommand: isCommand(ex),
                 subjects: nlp(ex).verbs().subjects().out("array"),
                 nouns: nlp(ex).nouns().out("array"),
                 adjectives: nlp(ex).nouns().adjectives().out("array"),
@@ -191,4 +242,6 @@ module.exports = {
  * 
  * Put only one word as action trigger in client side to be passed in server and get all synonyms of that word
  * using Synonym library, so that it will understand even if you use any word that has same meaning with action trigger word
+ * 
+ * Create isCommand functionality by detecting if verbs are imperative
  */
