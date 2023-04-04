@@ -102,6 +102,23 @@ function isCommand(sentcs){
     return hasImperativeCount.length == 0? false : true;
 }
 
+function fetchQuestionWords(sentcs){
+    var contractSentc = contractions.expand(sentcs)
+    var questionWordsArray = nlp(contractSentc).sentences().isQuestion().out("tags")
+    var splitSentence = contractSentc.toLowerCase().split(" ");
+    var questionWordsResult = []
+
+    splitSentence.map((qsw, i) => {
+        if(questionWordsArray[0][qsw].includes("QuestionWord")){
+            // console.log(qsw)
+            questionWordsResult.push(qsw)
+        }
+    })
+    
+    // console.log(splitSentence)
+    return questionWordsResult
+}
+
 function processMessage(messageToken){
     var data = nlp(messageToken)
     var checkSentenceLength = data.sentences().length
@@ -186,6 +203,7 @@ function processMessage(messageToken){
                 isAnswerableByYesNo: nlp(ex).sentences().isQuestion().out("array").length == 0? false : checkModalforYesNoQuestions(ex, nlp(ex).verbs().out("array"), ex.split(" ")),
                 isExpressionGreeting: consistsExpression(ex),
                 isCommand: isCommand(ex),
+                questionWords: nlp(ex).sentences().isQuestion().out("array").length == 0? [] : fetchQuestionWords(ex),
                 subjects: nlp(ex).verbs().subjects().out("array"),
                 nouns: nlp(ex).nouns().out("array"),
                 adjectives: nlp(ex).nouns().adjectives().out("array"),
@@ -205,6 +223,7 @@ function processMessage(messageToken){
                 isAnswerableByYesNo: nlp(ex).sentences().isQuestion().out("array").length == 0? false : checkModalforYesNoQuestions(ex, nlp(ex).verbs().out("array"), ex.split(" ")),
                 isExpressionGreeting: consistsExpression(ex),
                 isCommand: isCommand(ex),
+                questionWords: nlp(ex).sentences().isQuestion().out("array").length == 0? [] : fetchQuestionWords(ex),
                 subjects: nlp(ex).verbs().subjects().out("array"),
                 nouns: nlp(ex).nouns().out("array"),
                 adjectives: nlp(ex).nouns().adjectives().out("array"),
