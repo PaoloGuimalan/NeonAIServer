@@ -14,7 +14,7 @@ const natural = require('natural');
 // const { transmitIdentifierMain } = require("./src/neon_main/transmitIdentifier")
 const { wordlookup } = require("./src/neon_main/wordlookup")
 // const dictionaryData = require("./src/resources/json/dictionary.json");
-const { processMessage } = require("./src/neon_main/processMessage");
+const { processMessage, processResponse } = require("./src/neon_main/processMessage");
 
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
@@ -63,6 +63,11 @@ app.get('/testProcessMessage/:message', (req, res) => {
 
     // var finalLookup = wordlookup(message)
     var processMessageFinal = processMessage(message)
+    var processResponseFinal = processResponse(processMessageFinal)
 
-    res.send({status: true, result: processMessageFinal})
+    res.send({
+        status: true, 
+        result: processMessageFinal,
+        response: processResponseFinal
+    })
 })

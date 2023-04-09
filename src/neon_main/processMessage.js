@@ -238,8 +238,32 @@ function processMessage(messageToken){
     return isPhrasesPositive;
 }
 
+function processResponse(toProcessData){
+    var isToProcessDataEmpty = toProcessData.length == 0? true : false
+    var verbsArray = isToProcessDataEmpty? [] : toProcessData[0].verbs;
+    var nounsArray = isToProcessDataEmpty? [] : toProcessData[0].nouns;
+    var conjugationsArray = isToProcessDataEmpty? [] : toProcessData[0].conjugations;
+
+    var probabilitySortingFinal = []
+
+    var probabilitySorting = verbsArray.map((vrb, i) => {
+        nounsArray.map((nns, j) => {
+            probabilitySortingFinal.push({
+                action: `${vrb} ${nns}`,
+                statement: {
+                    before: `${conjugationsArray[0].FutureTense} ${nns}`,
+                    after: `${nns} ${conjugationsArray[0].PastTense}`
+                }
+            })
+        })
+    })
+
+    return probabilitySortingFinal
+}
+
 module.exports = {
-    processMessage
+    processMessage,
+    processResponse
 }
 
 /**
