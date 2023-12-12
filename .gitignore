@@ -1,2 +1,4 @@
 /node_modules
 /src/resources/json/dictionary.json
+
+*.env
