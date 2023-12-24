@@ -36,7 +36,20 @@ const createJwt = (data) => {
     return token;
 }
 
+const jwtdecode = (data) => {
+    return jwt.verify(data, JWT_SECRET, (err, decode) => {
+        if(err){
+            return false;
+        }
+        else{
+            const id = decode;
+            return id;
+        }
+    })
+}
+
 module.exports = {
     jwtverifier,
-    createJwt
+    createJwt,
+    jwtdecode
 }
