@@ -53,6 +53,66 @@ const checkEmailExisting = async (email) => {
     })
 }
 
+router.post('/refreshauth', (req, res) => {
+    const rawpayload = req.body.token;
+
+    try{
+        const decodedpayload = jwtdecode(rawpayload);
+
+        const userID = decodedpayload.userID;
+        const email = decodedpayload.email;
+
+        UserAccount.find({ email: email, userID: userID }, { password: 0, _id: 0, __v: 0 }).then((result) => {
+            if(result.length){
+                const rawresult = createJwt({
+                    ...result[0]._doc
+                });
+                res.send({status: true, result: rawresult});
+            }
+            else{
+                res.send({status: false, message: "Token not matched to any user!"})
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.send({status: false, message: "Invalid user token!"})
+        })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({status: false, message: "Tokenized payload invalid!"})
+    }
+})
+
+router.post('/login', (req, res) => {
+    const rawpayload = req.body.token;
+
+    try{
+        const decodedpayload = jwtdecode(rawpayload);
+
+        const password = decodedpayload.password;
+        const email = decodedpayload.email;
+
+        UserAccount.find({ email: email, password: password }, { password: 0, _id: 0 }).then((result) => {
+            if(result.length){
+                const rawresult = createJwt({
+                    ...result[0]._doc
+                });
+                res.send({status: true, result: rawresult});
+            }
+            else{
+                res.send({status: false, message: "Token not matched to any user!"})
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.send({status: false, message: "Invalid user token!"})
+        })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({status: false, message: "Tokenized payload invalid!"})
+    }
+})
+
 router.post('/register', async (req, res) => {
     const rawpayload = req.body.token;
     
@@ -88,7 +148,7 @@ router.post('/register', async (req, res) => {
     }
     catch(ex){
         console.log(ex);
-        res.send({states: false, message: "Tokenized payload invalid!"})
+        res.send({status: false, message: "Tokenized payload invalid!"})
     }
 })
 
