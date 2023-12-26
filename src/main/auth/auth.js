@@ -62,23 +62,7 @@ router.get('/refreshauth', jwtverifier, (req, res) => {
     try{
         const decodedpayload = rawpayload;
 
-        const userID = decodedpayload.userID;
-        const email = decodedpayload.email;
-
-        UserAccount.find({ email: email, userID: userID }, { password: 0, _id: 0, __v: 0 }).then((result) => {
-            if(result.length){
-                const rawresult = createJwt({
-                    ...result[0]._doc
-                });
-                res.send({status: true, result: rawresult});
-            }
-            else{
-                res.send({status: false, message: "Token not matched to any user!"})
-            }
-        }).catch((err) => {
-            console.log(err)
-            res.send({status: false, message: "Invalid user token!"})
-        })
+        res.send({status: true, result: decodedpayload});
     }
     catch(ex){
         console.log(ex);

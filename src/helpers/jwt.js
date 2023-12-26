@@ -3,6 +3,8 @@ const mongoose = require("mongoose")
 const jwt = require("jsonwebtoken")
 const JWT_SECRET = process.env.JWT_SECRET;
 
+const UserAccount = require("../schemas/useraccount");
+
 const jwtverifier = (req, res, next) => {
     const token = req.headers["x-access-token"];
 
@@ -15,10 +17,24 @@ const jwtverifier = (req, res, next) => {
                 })
             }
             else{
-                const id = decode;
+                const userID = decode.userID;
+                const email = decode.email;
 
-                req.params.token = id;
-                next()
+                UserAccount.find({ email: email, userID: userID }, { password: 0, _id: 0, __v: 0 }).then((result) => {
+                    if(result.length){
+                        const rawresult = createJwt({
+                            ...result[0]._doc
+                        });
+                        req.params.token = rawresult;
+                        next()
+                    }
+                    else{
+                        res.send({status: false, message: "Token not matched to any user!"})
+                    }
+                }).catch((err) => {
+                    console.log(err)
+                    res.send({status: false, message: "Invalid user token!"})
+                })
             }
         })
     }
