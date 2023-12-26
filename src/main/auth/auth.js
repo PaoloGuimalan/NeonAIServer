@@ -6,6 +6,8 @@ const { createJwt, jwtdecode } = require("../../helpers/jwt");
 const { makeid, dateGetter, timeGetter } = require("../../helpers/generators");
 
 const UserAccount = require("../../schemas/useraccount");
+const { sendEmailVerCode } = require("../../helpers/requests");
+const { getUserInfo } = require("../../helpers/reusables");
 
 router.get('/', (req, res) => {
     res.send("Neon AI Authentication")
@@ -120,10 +122,12 @@ router.post('/register', async (req, res) => {
         const decodedpayload = jwtdecode(rawpayload);
 
         const email = decodedpayload.email;
+        const password = decodedpayload.password;
+        const userID = await checkUserIDExisting(`USR_${makeid(5)}_${makeid(10)}`);
 
-        const newAccount = new UserAccount({
+        const payload = {
             ...decodedpayload,
-            userID: await checkUserIDExisting(`USR_${makeid(5)}_${makeid(10)}`),
+            userID: userID,
             profile: "",
             dateCreated: {
                 date: dateGetter(),
@@ -131,15 +135,22 @@ router.post('/register', async (req, res) => {
             },
             isActivated: true,
             isVerified: false
-        })
+        }
+
+        const newAccount = new UserAccount(payload);
 
         if(await checkEmailExisting(email)){
             res.send({status: false, message: "Email already in use"});
         }
         else{
             newAccount.save().then(() => {
-                // sendEmailVerCode("ChatterLoop", email, "Verification Code", userID)
-                res.send({status: true, message: "You have been registered"})
+                getUserInfo(email, password).then((info) => {
+                    sendEmailVerCode("ChatterLoop", email, "Verification Code", userID)
+                    res.send({status: true, message: "You have been registered", result: info})
+                }).catch((err) => {
+                    console.log(err);
+                    res.send({status: false, message: "Error fetching account information"})
+                })
             }).catch((err) => {
                 console.log(err);
                 res.send({status: false, message: "Error registering account!"});
