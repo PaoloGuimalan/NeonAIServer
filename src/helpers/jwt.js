@@ -17,7 +17,7 @@ const jwtverifier = (req, res, next) => {
             else{
                 const id = decode;
 
-                req.params.jwtID = id;
+                req.params.token = id;
                 next()
             }
         })

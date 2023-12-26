@@ -32,7 +32,38 @@ const getUserInfo = async (email, password) => {
     })
 }
 
+const getUserInfoByUserID = async (userID) => {
+    return await UserAccount.find({ userID: userID }, { password: 0, _id: 0 }).then((result) => {
+        if(result.length){
+            const rawresult = createJwt({
+                ...result[0]._doc
+            });
+            return rawresult
+        }
+        else{
+            return false;
+        }
+    }).catch((err) => {
+        throw new Error(err);
+    })
+}
+
+const changeAccountVerificationStatus = async (userID, newStatus) => {
+    return await UserAccount.updateOne({ userID: userID }, { isVerified: newStatus }).then((result) => {
+        if(result.modifiedCount){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }).catch((err) => {
+        throw new Error(err);
+    })
+}
+
 module.exports = {
     checkVerIDExisting,
-    getUserInfo
+    getUserInfo,
+    getUserInfoByUserID,
+    changeAccountVerificationStatus
 }

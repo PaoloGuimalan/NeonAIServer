@@ -2,12 +2,13 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose")
 const jwt = require("jsonwebtoken");
-const { createJwt, jwtdecode } = require("../../helpers/jwt");
+const { createJwt, jwtdecode, jwtverifier } = require("../../helpers/jwt");
 const { makeid, dateGetter, timeGetter } = require("../../helpers/generators");
 
 const UserAccount = require("../../schemas/useraccount");
+const UserVerification = require("../../schemas/userverification");
 const { sendEmailVerCode } = require("../../helpers/requests");
-const { getUserInfo } = require("../../helpers/reusables");
+const { getUserInfo, getUserInfoByUserID, changeAccountVerificationStatus } = require("../../helpers/reusables");
 
 router.get('/', (req, res) => {
     res.send("Neon AI Authentication")
@@ -55,11 +56,11 @@ const checkEmailExisting = async (email) => {
     })
 }
 
-router.post('/refreshauth', (req, res) => {
-    const rawpayload = req.body.token;
+router.get('/refreshauth', jwtverifier, (req, res) => {
+    const rawpayload = req.params.token;
 
     try{
-        const decodedpayload = jwtdecode(rawpayload);
+        const decodedpayload = rawpayload;
 
         const userID = decodedpayload.userID;
         const email = decodedpayload.email;
@@ -160,6 +161,65 @@ router.post('/register', async (req, res) => {
     catch(ex){
         console.log(ex);
         res.send({status: false, message: "Tokenized payload invalid!"})
+    }
+})
+
+router.post('/verification', (req, res) => {
+    const rawpayload = req.body.token;
+    
+    try{
+        const decodedpayload = jwtdecode(rawpayload);
+        const userID = decodedpayload.userID;
+        const code = decodedpayload.code;
+
+        UserVerification.find({ userID: userID, verCode: code }).then((result) => {
+            if(result.length){
+                const verID = result[0]._doc.verID;
+                UserVerification.updateOne({ verID: verID }, { isUsed: true }).then(() => {
+                    // update isVerified status
+                    changeAccountVerificationStatus(userID, true).then((status) => {
+                        if(status){
+                            getUserInfoByUserID(userID).then((info) => {
+                                res.send({status: true, message: "Your account has been verified!", result: info})
+                            }).catch((err) => {
+                                console.log(err);
+                                res.send({status: false, message: "Error fetching account information"})
+                            })
+                        }
+                        else{
+                            res.send({status: false, message: "Error establishing account verification"})
+                        }
+                    }).catch((err) => {
+                        console.log(err);
+                        res.send({status: false, message: "Error establishing account verification"})
+                    })
+                    if(changeAccountVerificationStatus(userID, true)){
+                        getUserInfoByUserID(userID).then((info) => {
+                            res.send({status: true, message: "Your account has been verified!", result: info})
+                        }).catch((err) => {
+                            console.log(err);
+                            res.send({status: false, message: "Error fetching account information"})
+                        })
+                    }
+                    else{
+                        res.send({status: false, message: "Error establishing account verification"})
+                    }
+                }).catch((err) => {
+                    console.log(err)
+                    res.send({status: false, message: "Error establishing account verification"})
+                })
+            }
+            else{
+                res.send({status: false, message: "Verification token is invalid!"})
+            }
+        }).catch((err) => {
+            console.log(err)
+            res.send({status: false, message: "Invalid user token!"})
+        })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({status: false, message: "Cannot verify account!"})
     }
 })
 
