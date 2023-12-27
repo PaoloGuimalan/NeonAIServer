@@ -9,6 +9,7 @@ const UserAccount = require("../../schemas/useraccount");
 const UserVerification = require("../../schemas/userverification");
 const { sendEmailVerCode } = require("../../helpers/requests");
 const { getUserInfo, getUserInfoByUserID, changeAccountVerificationStatus } = require("../../helpers/reusables");
+const { sseNotificationsWaiters } = require("../../helpers/ssehandler");
 
 router.get('/', (req, res) => {
     res.send("Neon AI Authentication")
@@ -23,6 +24,19 @@ router.post('/createtoken', (req, res) => {
     res.send({
         status: true,
         result: createdToken
+    })
+})
+
+router.get('/checksessions', (req, res) => {
+    const presentsessions = Object.keys(sseNotificationsWaiters).map((mp) => ({
+        connectionID: mp,
+        numberOfSessions: sseNotificationsWaiters[mp].response.length,
+        sessions: sseNotificationsWaiters[mp].response.map((mpi) => (mpi.sessionstamp))
+    })) 
+
+    res.send({
+        status: true,
+        data: presentsessions
     })
 })
 
