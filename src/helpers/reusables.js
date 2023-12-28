@@ -1,14 +1,16 @@
 const UserVerification = require("../schemas/userverification");
 const UserAccount = require("../schemas/useraccount");
+const Devices = require("../schemas/devices")
 const { createJwt } = require("./jwt");
+const { makeid } = require("./generators");
 
 const checkVerIDExisting = async (IDMade) => {
     return await UserVerification.find({verID: IDMade}).then((result) => {
         if(result.length){
-            checkVerIDExisting(makeID(20))
+            checkVerIDExisting(makeid(20))
         }
         else{
-            return IDMade;
+            return IDMade; 
         }
     }).catch((err) => {
         console.log(err)
@@ -61,9 +63,24 @@ const changeAccountVerificationStatus = async (userID, newStatus) => {
     })
 }
 
+const checkDeviceIDExisting = async (IDMade) => {
+    return await Devices.find({deviceID: IDMade}).then((result) => {
+        if(result.length){
+            checkDeviceIDExisting(`DVC_${makeid(20)}`)
+        }
+        else{
+            return IDMade;
+        }
+    }).catch((err) => {
+        console.log(err)
+        return false;
+    })
+}
+
 module.exports = {
     checkVerIDExisting,
     getUserInfo,
     getUserInfoByUserID,
-    changeAccountVerificationStatus
+    changeAccountVerificationStatus,
+    checkDeviceIDExisting
 }
