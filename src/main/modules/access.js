@@ -4,7 +4,7 @@ const mongoose =  require("mongoose");
 const jwt = require("jsonwebtoken");
 const sse = require("sse-express");
 const { jwtverifier, jwtssechecker, jwtdecode, createJwt } = require("../../helpers/jwt");
-const { insertNewSession, clearASingleSession } = require("../../helpers/ssehandler");
+const { insertNewSession, clearASingleSession, flushToSingleID } = require("../../helpers/ssehandler");
 const { makeid, dateGetter, timeGetter } = require("../../helpers/generators");
 
 const Devices = require("../../schemas/devices");
@@ -82,6 +82,27 @@ router.post('/adddevice', jwtverifier, async (req, res) => {
         });
 
         // console.log(newdevicedata);
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({ status: false, message: "Token Request was corrupted!" })
+    }
+})
+
+router.get('/getdevices', jwtverifier, async (req, res) => {
+    const userInfo = req.params.token;
+    
+    try{
+        const decodedUserInfo = jwtdecode(userInfo);
+        const userID = decodedUserInfo.userID;
+
+        Devices.find({ userID: userID }).then((result) => {
+            flushToSingleID('devicelist', userID, result);
+            res.send({ status: true, message: "OK" })
+        }).catch((err) => {
+            res.send({ status: false, message: "Error fetching devices" })
+            console.log(err);
+        })
     }
     catch(ex){
         console.log(ex);

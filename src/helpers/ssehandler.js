@@ -1,4 +1,5 @@
 const sse = require("sse-express");
+const { createJwt } = require("./jwt");
 
 let sseNotificationsWaiters = Object.create(null);
 
@@ -55,12 +56,30 @@ const clearASingleSession = (tokenfromsse, sessionstamp) => {
 }
 
 const clearAllSession = () => {
+    sseNotificationsWaiters = Object.create(null);
+}
 
+const flushToSingleID = (type, connectionID, result) => {
+    const connectionResponse = sseNotificationsWaiters[connectionID];
+    const encodedResult = createJwt({
+        data: result
+    });
+
+    if(connectionResponse){
+        connectionResponse.response.map((mp) => {
+            mp.res.sse(type, {
+                status: true,
+                listener: type,
+                result: encodedResult
+            })
+        })
+    }
 }
 
 module.exports = {
     sseNotificationsWaiters,
     insertNewSession,
     clearASingleSession,
-    clearAllSession
+    clearAllSession,
+    flushToSingleID
 }
