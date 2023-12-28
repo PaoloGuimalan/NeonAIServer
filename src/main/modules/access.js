@@ -48,7 +48,13 @@ router.post('/adddevice', jwtverifier, async (req, res) => {
             deviceID: deviceID
         }
 
-        const connectionToken = createJwt(connectionTokenraw);
+        const connectionTokenValue = createJwt(connectionTokenraw);
+
+        const connectionTokenForTokenize = {
+            token: connectionTokenValue
+        }
+
+        const connectionToken = createJwt(connectionTokenForTokenize);
 
         const newdevicedata = {
             deviceID: deviceID,
