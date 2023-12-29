@@ -132,4 +132,20 @@ router.get('/getdeviceinfo/:deviceID', jwtverifier, async (req, res) => {
     }
 })
 
+router.get('/getdevicefiles/:tokenizedpayload', jwtverifier, async (req, res) => {
+    const tokenizedpayload = req.params.tokenizedpayload;
+    
+    try{
+        const decodedtokenpayload = jwtdecode(tokenizedpayload);
+        const deviceID = decodedtokenpayload.deviceID;
+        
+        flushToSingleID('devicefileslist', deviceID, decodedtokenpayload);
+        res.send({ status: true, message: "OK" })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({ status: false, message: "Token Request was corrupted!" })
+    }
+})
+
 module.exports = router;

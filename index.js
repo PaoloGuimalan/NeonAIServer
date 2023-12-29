@@ -11,6 +11,7 @@ const socketIO = require("socket.io");
 
 const Authentication = require('./src/main/auth/auth')
 const Access = require('./src/main/modules/access')
+const Device = require('./src/main/modules/device')
 
 const MongooseConnection = require("./src/connections/index")
 
@@ -29,6 +30,7 @@ app.use(cors({
 
 app.use('/auth', Authentication)
 app.use('/access', Access)
+app.use('/device', Device)
 
 app.listen(PORT, () => {
     console.log(`Server running at Port ${PORT}`);
