@@ -110,4 +110,26 @@ router.get('/getdevices', jwtverifier, async (req, res) => {
     }
 })
 
+router.get('/getdeviceinfo/:deviceID', jwtverifier, async (req, res) => {
+    const userInfo = req.params.token;
+    const deviceID = req.params.deviceID;
+    
+    try{
+        const decodedUserInfo = jwtdecode(userInfo);
+        const userID = decodedUserInfo.userID;
+
+        Devices.findOne({ deviceID: deviceID }).then((result) => {
+            flushToSingleID('deviceinfo', userID, result);
+            res.send({ status: true, message: "OK" })
+        }).catch((err) => {
+            res.send({ status: false, message: "Error fetching devices" })
+            console.log(err);
+        })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({ status: false, message: "Token Request was corrupted!" })
+    }
+})
+
 module.exports = router;
