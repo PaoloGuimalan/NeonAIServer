@@ -9,18 +9,33 @@ const insertNewSession = async (tokenfromsse, sessionstamp, res) => {
     const ifexistingsession = await sseNotificationsWaiters[connectionID];
 
     if(ifexistingsession){
-        sseNotificationsWaiters[connectionID] = {
-            response: [
-                ...ifexistingsession.response,
-                {
-                    type: connectionType,
-                    sessionstamp: sessionstamp,
-                    res: res
-                }
-            ]
+        if(connectionType == "remote"){
+            sseNotificationsWaiters[connectionID] = {
+                response: [
+                    ...ifexistingsession.response,
+                    {
+                        type: connectionType,
+                        sessionstamp: sessionstamp,
+                        res: res
+                    }
+                ]
+            }
+    
+            return true;
         }
-
-        return true;
+        else{
+            sseNotificationsWaiters[connectionID] = {
+                response: [
+                    {
+                        type: connectionType,
+                        sessionstamp: sessionstamp,
+                        res: res
+                    }
+                ]
+            }
+    
+            return true;
+        }
     }
     else{
         sseNotificationsWaiters[connectionID] = {
