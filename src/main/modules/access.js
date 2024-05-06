@@ -148,4 +148,21 @@ router.get('/getdevicefiles/:tokenizedpayload', jwtverifier, async (req, res) =>
     }
 })
 
+router.post('/manualdeviceverification', async (req, res) => {
+    const userID = req.body.userID;
+    const deviceID = req.body.deviceID;
+
+    Devices.find({ userID: userID, deviceID: deviceID }).then((result) => {
+        if(result.length > 0){
+            res.send({ status: true, message: "Device Verified" });
+        }
+        else{
+            res.send({ status: false, message: "Device not match" });
+        }
+    }).catch((err) => {
+        console.log(err);
+        res.send({ status: false, message: "Error verifying device" });
+    })
+})
+
 module.exports = router;
