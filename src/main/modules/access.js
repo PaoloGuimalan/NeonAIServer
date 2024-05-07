@@ -151,8 +151,9 @@ router.get('/getdevicefiles/:tokenizedpayload', jwtverifier, async (req, res) =>
 router.post('/manualdeviceverification', async (req, res) => {
     const userID = req.body.userID;
     const deviceID = req.body.deviceID;
+    const connectionToken = req.body.connectionToken;
 
-    Devices.find({ userID: userID, deviceID: deviceID }).then((result) => {
+    Devices.find({ userID: userID, deviceID: deviceID, connectionToken: connectionToken }).then((result) => {
         if(result.length > 0){
             res.send({ status: true, message: "Device Verified" });
         }
