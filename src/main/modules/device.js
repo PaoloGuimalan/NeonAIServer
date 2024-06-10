@@ -33,4 +33,21 @@ router.post('/devicefileslistresponse', (req, res) => {
     }
 })
 
+router.post('/devicesystemlogsrelay', (req, res) => {
+    const data = req.body.token;
+    
+    try{
+        const parsedData = JSON.parse(data);
+        const connectionID = parsedData.toID;
+        
+        flushToSingleID('devicesystemlogs', connectionID, parsedData);
+
+        res.send({ status: true, message: "OK" })
+    }
+    catch(ex){
+        console.log(ex);
+        res.send({ status: false, message: "Error parsing data" })
+    }
+})
+
 module.exports = router;
