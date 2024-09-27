@@ -1,169 +1,218 @@
-const express = require("express")
-const router = express.Router()
-const mongoose =  require("mongoose");
+const express = require("express");
+const router = express.Router();
+const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const sse = require("sse-express");
-const { jwtverifier, jwtssechecker, jwtdecode, createJwt } = require("../../helpers/jwt");
-const { insertNewSession, clearASingleSession, flushToSingleID } = require("../../helpers/ssehandler");
+const {
+  jwtverifier,
+  jwtssechecker,
+  jwtdecode,
+  createJwt,
+} = require("../../helpers/jwt");
+const {
+  insertNewSession,
+  clearASingleSession,
+  flushToSingleID,
+} = require("../../helpers/ssehandler");
 const { makeid, dateGetter, timeGetter } = require("../../helpers/generators");
 
 const Devices = require("../../schemas/devices");
 const { checkDeviceIDExisting } = require("../../helpers/reusables");
+const producer = require("../../helpers/rabbitmq/producer");
+const { FLUSH_TO_SINGLE_ID } = require("../../helpers/vars/rabbitmq-events");
 
-router.get('/', jwtverifier, (req, res) => {
-    const jwtID = req.params.jwtID;
+router.get("/", jwtverifier, (req, res) => {
+  const jwtID = req.params.jwtID;
 
-    res.send({ status: true, result: jwtID })
-})
+  res.send({ status: true, result: jwtID });
+});
 
-router.get('/ssehandshake/:ssetoken', [sse, jwtssechecker], async (req, res) => {
+router.get(
+  "/ssehandshake/:ssetoken",
+  [sse, jwtssechecker],
+  async (req, res) => {
     const tokenfromsse = req.params.token;
-    const sessionstamp = `SESSION_STAMP_${makeid(15)}`
+    const sessionstamp = `SESSION_STAMP_${makeid(15)}`;
 
     insertNewSession(tokenfromsse, sessionstamp, res).then(() => {
-        // handle sse actions to notify other connections
-    })
+      // handle sse actions to notify other connections
+    });
 
-    req.on('close', () => {
-        clearASingleSession(tokenfromsse, sessionstamp);
-        console.log("Session Closed!")
-    })
-})
+    req.on("close", () => {
+      clearASingleSession(tokenfromsse, sessionstamp);
+      console.log("Session Closed!");
+    });
+  }
+);
 
-router.post('/adddevice', jwtverifier, async (req, res) => {
-    const payload = req.body.token;
-    const userInfo = req.params.token;
-    
-    try{
-        const decodedpayload = jwtdecode(payload);
-        const decodedUserInfo = jwtdecode(userInfo);
+router.post("/adddevice", jwtverifier, async (req, res) => {
+  const payload = req.body.token;
+  const userInfo = req.params.token;
 
-        const deviceID = await checkDeviceIDExisting(`DVC_${makeid(20)}`);
+  try {
+    const decodedpayload = jwtdecode(payload);
+    const decodedUserInfo = jwtdecode(userInfo);
 
-        // token must consist email, userID, connectionType (if remote or device) and if device, add deviceID
-        const connectionTokenraw = {
-            email: decodedUserInfo.email,
-            userID: decodedUserInfo.userID,
-            connectionType: "device",
-            deviceID: deviceID
-        }
+    const deviceID = await checkDeviceIDExisting(`DVC_${makeid(20)}`);
 
-        const connectionTokenValue = createJwt(connectionTokenraw);
+    // token must consist email, userID, connectionType (if remote or device) and if device, add deviceID
+    const connectionTokenraw = {
+      email: decodedUserInfo.email,
+      userID: decodedUserInfo.userID,
+      connectionType: "device",
+      deviceID: deviceID,
+    };
 
-        const connectionTokenForTokenize = {
-            token: connectionTokenValue
-        }
+    const connectionTokenValue = createJwt(connectionTokenraw);
 
-        const connectionToken = createJwt(connectionTokenForTokenize);
+    const connectionTokenForTokenize = {
+      token: connectionTokenValue,
+    };
 
-        const newdevicedata = {
-            deviceID: deviceID,
-            deviceName: decodedpayload.deviceName,
-            userID: decodedUserInfo.userID,
-            type: decodedpayload.deviceType, //mobile, pc, embedded devices
-            os: decodedpayload.os,
-            connectionToken: connectionToken, //token will be used for sseconnection 
-            dateAdded: {
-                date: dateGetter(),
-                time: timeGetter()
-            },
-            isActivated: true,
-            isMounted: false
-        }
+    const connectionToken = createJwt(connectionTokenForTokenize);
 
-        const newDevice = new Devices(newdevicedata);
+    const newdevicedata = {
+      deviceID: deviceID,
+      deviceName: decodedpayload.deviceName,
+      userID: decodedUserInfo.userID,
+      type: decodedpayload.deviceType, //mobile, pc, embedded devices
+      os: decodedpayload.os,
+      connectionToken: connectionToken, //token will be used for sseconnection
+      dateAdded: {
+        date: dateGetter(),
+        time: timeGetter(),
+      },
+      isActivated: true,
+      isMounted: false,
+    };
 
-        newDevice.save().then(() => {
-            // execute sse triggers
-            res.send({ status: true, message: "Device has been added" })
-        }).catch((err) => {
-            console.log(err);
-            res.send({status: false, message: "Error adding device!"});
-        });
+    const newDevice = new Devices(newdevicedata);
 
-        // console.log(newdevicedata);
-    }
-    catch(ex){
-        console.log(ex);
-        res.send({ status: false, message: "Token Request was corrupted!" })
-    }
-})
-
-router.get('/getdevices', jwtverifier, async (req, res) => {
-    const userInfo = req.params.token;
-    
-    try{
-        const decodedUserInfo = jwtdecode(userInfo);
-        const userID = decodedUserInfo.userID;
-
-        Devices.find({ userID: userID }).then((result) => {
-            flushToSingleID('devicelist', userID, result);
-            res.send({ status: true, message: "OK" })
-        }).catch((err) => {
-            res.send({ status: false, message: "Error fetching devices" })
-            console.log(err);
-        })
-    }
-    catch(ex){
-        console.log(ex);
-        res.send({ status: false, message: "Token Request was corrupted!" })
-    }
-})
-
-router.get('/getdeviceinfo/:deviceID', jwtverifier, async (req, res) => {
-    const userInfo = req.params.token;
-    const deviceID = req.params.deviceID;
-    
-    try{
-        const decodedUserInfo = jwtdecode(userInfo);
-        const userID = decodedUserInfo.userID;
-
-        Devices.findOne({ deviceID: deviceID }).then((result) => {
-            flushToSingleID('deviceinfo', userID, result);
-            res.send({ status: true, message: "OK" })
-        }).catch((err) => {
-            res.send({ status: false, message: "Error fetching devices" })
-            console.log(err);
-        })
-    }
-    catch(ex){
-        console.log(ex);
-        res.send({ status: false, message: "Token Request was corrupted!" })
-    }
-})
-
-router.get('/getdevicefiles/:tokenizedpayload', jwtverifier, async (req, res) => {
-    const tokenizedpayload = req.params.tokenizedpayload;
-    
-    try{
-        const decodedtokenpayload = jwtdecode(tokenizedpayload);
-        const deviceID = decodedtokenpayload.deviceID;
-        
-        flushToSingleID('devicefileslist', deviceID, decodedtokenpayload);
-        res.send({ status: true, message: "OK" })
-    }
-    catch(ex){
-        console.log(ex);
-        res.send({ status: false, message: "Token Request was corrupted!" })
-    }
-})
-
-router.post('/manualdeviceverification', async (req, res) => {
-    const userID = req.body.userID;
-    const deviceID = req.body.deviceID;
-    const connectionToken = req.body.connectionToken;
-
-    Devices.find({ userID: userID, deviceID: deviceID, connectionToken: connectionToken }).then((result) => {
-        if(result.length > 0){
-            res.send({ status: true, message: "Device Verified" });
-        }
-        else{
-            res.send({ status: false, message: "Device not match" });
-        }
-    }).catch((err) => {
+    newDevice
+      .save()
+      .then(() => {
+        // execute sse triggers
+        res.send({ status: true, message: "Device has been added" });
+      })
+      .catch((err) => {
         console.log(err);
-        res.send({ status: false, message: "Error verifying device" });
+        res.send({ status: false, message: "Error adding device!" });
+      });
+
+    // console.log(newdevicedata);
+  } catch (ex) {
+    console.log(ex);
+    res.send({ status: false, message: "Token Request was corrupted!" });
+  }
+});
+
+router.get("/getdevices", jwtverifier, async (req, res) => {
+  const userInfo = req.params.token;
+
+  try {
+    const decodedUserInfo = jwtdecode(userInfo);
+    const userID = decodedUserInfo.userID;
+
+    Devices.find({ userID: userID })
+      .then(async (result) => {
+        flushToSingleID("devicelist", userID, result);
+        await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+          parameters: {
+            type: "devicelist",
+            userID,
+            result,
+          },
+        });
+        res.send({ status: true, message: "OK" });
+      })
+      .catch((err) => {
+        res.send({ status: false, message: "Error fetching devices" });
+        console.log(err);
+      });
+  } catch (ex) {
+    console.log(ex);
+    res.send({ status: false, message: "Token Request was corrupted!" });
+  }
+});
+
+router.get("/getdeviceinfo/:deviceID", jwtverifier, async (req, res) => {
+  const userInfo = req.params.token;
+  const deviceID = req.params.deviceID;
+
+  try {
+    const decodedUserInfo = jwtdecode(userInfo);
+    const userID = decodedUserInfo.userID;
+
+    Devices.findOne({ deviceID: deviceID })
+      .then(async (result) => {
+        flushToSingleID("deviceinfo", userID, result);
+        await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+          parameters: {
+            type: "deviceinfo",
+            userID,
+            result,
+          },
+        });
+        res.send({ status: true, message: "OK" });
+      })
+      .catch((err) => {
+        res.send({ status: false, message: "Error fetching devices" });
+        console.log(err);
+      });
+  } catch (ex) {
+    console.log(ex);
+    res.send({ status: false, message: "Token Request was corrupted!" });
+  }
+});
+
+router.get(
+  "/getdevicefiles/:tokenizedpayload",
+  jwtverifier,
+  async (req, res) => {
+    const tokenizedpayload = req.params.tokenizedpayload;
+
+    try {
+      const decodedtokenpayload = jwtdecode(tokenizedpayload);
+      const deviceID = decodedtokenpayload.deviceID;
+
+      flushToSingleID("devicefileslist", deviceID, decodedtokenpayload);
+      await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+        parameters: {
+          type: "devicefileslist",
+          userID: deviceID,
+          result: decodedtokenpayload,
+        },
+      });
+      res.send({ status: true, message: "OK" });
+    } catch (ex) {
+      console.log(ex);
+      res.send({ status: false, message: "Token Request was corrupted!" });
+    }
+  }
+);
+
+router.post("/manualdeviceverification", async (req, res) => {
+  const userID = req.body.userID;
+  const deviceID = req.body.deviceID;
+  const connectionToken = req.body.connectionToken;
+
+  Devices.find({
+    userID: userID,
+    deviceID: deviceID,
+    connectionToken: connectionToken,
+  })
+    .then((result) => {
+      if (result.length > 0) {
+        res.send({ status: true, message: "Device Verified" });
+      } else {
+        res.send({ status: false, message: "Device not match" });
+      }
     })
-})
+    .catch((err) => {
+      console.log(err);
+      res.send({ status: false, message: "Error verifying device" });
+    });
+});
 
 module.exports = router;
+
