@@ -191,6 +191,28 @@ router.get(
   }
 );
 
+router.post("/fetchfile", jwtverifier, async (req, res) => {
+  const tokenizedpayload = req.body.tokenizedpayload;
+
+  try {
+    const decodedtokenpayload = jwtdecode(tokenizedpayload);
+    const deviceID = decodedtokenpayload.deviceID;
+
+    flushToSingleID("fetch_file_request", deviceID, decodedtokenpayload);
+    await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+      parameters: {
+        type: "fetch_file_request",
+        userID: deviceID,
+        result: decodedtokenpayload,
+      },
+    });
+    res.send({ status: true, message: "OK" });
+  } catch (ex) {
+    console.log(ex);
+    res.send({ status: false, message: "Token Request was corrupted!" });
+  }
+});
+
 router.post("/manualdeviceverification", async (req, res) => {
   const userID = req.body.userID;
   const deviceID = req.body.deviceID;
