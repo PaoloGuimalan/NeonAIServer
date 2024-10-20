@@ -50,6 +50,30 @@ router.post("/devicefileslistresponse", async (req, res) => {
   }
 });
 
+router.post("/pretransferfile", async (req, res) => {
+  const data = req.body.token;
+
+  try {
+    const parsedData = JSON.parse(data);
+    const connectionID = parsedData.toID;
+
+    flushToSingleID("fetch_file_metadata", connectionID, parsedData);
+
+    await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+      parameters: {
+        type: "fetch_file_metadata",
+        userID: connectionID,
+        result: parsedData,
+      },
+    });
+
+    res.send({ status: true, message: "OK" });
+  } catch (ex) {
+    console.log(ex);
+    res.send({ status: false, message: "Error parsing data" });
+  }
+});
+
 router.post("/relayfile", async (req, res) => {
   const data = req.body.token;
 
@@ -99,4 +123,3 @@ router.post("/devicesystemlogsrelay", async (req, res) => {
 });
 
 module.exports = router;
-
