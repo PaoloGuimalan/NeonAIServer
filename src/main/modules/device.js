@@ -87,13 +87,17 @@ router.post("/relayfile", async (req, res) => {
         part: req.body.part,
       });
 
-      await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
-        parameters: {
-          type: "fetch_file_response",
-          userID: connectionID,
-          result: { ...parsedData, part: req.body.part },
-        },
-      });
+      try {
+        await producer.publishMessage("INFO:NEONREMOTE", FLUSH_TO_SINGLE_ID, {
+          parameters: {
+            type: "fetch_file_response",
+            userID: connectionID,
+            result: { ...parsedData, part: req.body.part },
+          },
+        });
+      } catch (ex) {
+        console.log(ex);
+      }
     }, 1500);
 
     res.send({ status: true, message: "OK" });
