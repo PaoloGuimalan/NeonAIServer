@@ -20,7 +20,7 @@ const connectMongo = async () => {
   return mongoose.connect(MongooseConnection.url, MongooseConnection.params);
 };
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: false, limit: "50mb" }));
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(
